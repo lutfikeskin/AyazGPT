@@ -5,6 +5,7 @@ from loguru import logger
 from modules.investment.collectors.market_collector import MarketCollector
 from modules.investment.collectors.news_collector import NewsCollector
 from modules.investment.collectors.macro_collector import MacroCollector
+from modules.investment.collectors.kap_collector import KAPCollector
 
 istanbul_tz = pytz.timezone("Europe/Istanbul")
 
@@ -51,6 +52,12 @@ async def collect_resmi_gazete():
     collector = MacroCollector(dry_run=False)
     await collector.fetch_resmi_gazete()
     logger.info("Finished Resmi Gazete collection.")
+
+async def collect_kap():
+    logger.info("Starting scheduled KAP disclosure collection.")
+    collector = KAPCollector()
+    await collector.run_collection()
+    logger.info("Finished KAP disclosure collection.")
 
 def setup_scheduler():
     """Configure and start the background scheduler."""
@@ -118,6 +125,26 @@ def setup_scheduler():
         hour=8, 
         minute=0,
         id="collect_resmi_gazete",
+        replace_existing=True
+    )
+
+    # KAP Disclosures: every 30 minutes on weekdays
+    scheduler.add_job(
+        collect_kap,
+        'cron',
+        day_of_week='mon-fri',
+        minute='0,30',
+        id="collect_kap_weekdays",
+        replace_existing=True
+    )
+
+    # KAP Disclosures: every 4 hours on weekends
+    scheduler.add_job(
+        collect_kap,
+        'cron',
+        day_of_week='sat-sun',
+        hour='*/4',
+        id="collect_kap_weekends",
         replace_existing=True
     )
     

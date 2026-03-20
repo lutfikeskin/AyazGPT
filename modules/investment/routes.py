@@ -12,6 +12,10 @@ from modules.investment.ai.schemas import (
     BlindSpot, ReportSummary, HistoricalQAResponse,
     InvestmentRecommendation, MarketRegime, UniverseScan
 )
+from modules.investment.models import NewsItem
+from core.database import AsyncSessionLocal as async_session
+from sqlalchemy import select, desc
+from datetime import datetime, timedelta
 
 router = APIRouter(tags=["investment"])
 insight_engine = InsightEngine()
@@ -214,3 +218,32 @@ async def get_prices(symbol: str, timeframe: str = "1Y"):
         "close": df['close'].fillna(0).tolist(),
         "volume": df['volume'].fillna(0).tolist()
     }
+
+@router.get("/disclosures/recent")
+async def get_recent_disclosures(hours: int = 24, high_priority_only: bool = False):
+    """Fetch recent disclosures from the database."""
+    cutoff = datetime.now() - timedelta(hours=hours)
+    async with async_session() as session:
+        stmt = select(NewsItem).where(
+            NewsItem.source == "KAP",
+            NewsItem.published_at >= cutoff
+        ).order_by(desc(NewsItem.published_at))
+        
+        # Note: high_priority filter would need the 'metadata' column which we found is missing
+        # For now, we return all recent KAP news
+        res = await session.execute(stmt)
+        return res.scalars().all()
+
+@router.get("/disclosures/{symbol}")
+async def get_symbol_disclosures(symbol: str, limit: int = 10):
+    """Fetch recent disclosures for a specific symbol."""
+    async with async_session() as session:
+        # Search in JSONB array
+        # In PostgreSQL: symbols_mentioned @> '["TUPRS.IS"]'
+        stmt = select(NewsItem).where(
+            NewsItem.source == "KAP",
+            NewsItem.symbols_mentioned.contains([symbol])
+        ).order_by(desc(NewsItem.published_at)).limit(limit)
+        
+        res = await session.execute(stmt)
+        return res.scalars().all()

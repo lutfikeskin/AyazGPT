@@ -229,3 +229,36 @@ class LLMClient:
         except Exception as e:
             logger.error(f"Error answering historical question: {e}")
             return "Internal Error"
+    async def generate_flash(self, prompt: str, lang: str = "tr") -> str:
+        """Generic flash model execution."""
+        try:
+            model_id = MODEL_ROUTING.get("quick_qa", FLASH)
+            response = client.models.generate_content(
+                model=model_id,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=self._get_system_prompt(lang),
+                    max_output_tokens=4096
+                )
+            )
+            return response.text or ""
+        except Exception as e:
+            logger.error(f"Generate flash error: {e}")
+            return ""
+
+    async def generate_pro(self, prompt: str, lang: str = "tr") -> str:
+        """Generic pro model execution."""
+        try:
+            model_id = MODEL_ROUTING.get("symbol_analysis", PRO)
+            response = client.models.generate_content(
+                model=model_id,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=self._get_system_prompt(lang),
+                    max_output_tokens=4096
+                )
+            )
+            return response.text or ""
+        except Exception as e:
+            logger.error(f"Generate pro error: {e}")
+            return ""
