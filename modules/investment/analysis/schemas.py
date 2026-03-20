@@ -14,6 +14,15 @@ class FundamentalAnalysisResult(BaseModel):
     dcf_fair_value: Optional[float]
     vs_current_price_pct: Optional[float]
     quality_score: int = Field(ge=0, le=10)
+    
+    # borsapy / Analyst fields
+    analyst_target_mean: Optional[float] = None
+    analyst_target_high: Optional[float] = None
+    analyst_target_low: Optional[float] = None
+    analyst_count: Optional[int] = None
+    recommendation_consensus: Optional[str] = None  # "buy" | "hold" | "sell"
+    buy_pct: Optional[float] = None
+    next_earnings_date: Optional[str] = None
 
 class AggregatedSentiment(BaseModel):
     symbol: str

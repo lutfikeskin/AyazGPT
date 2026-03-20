@@ -178,3 +178,102 @@ class ReportStore:
         except Exception as e:
             logger.error(f"Failed to search reports in ChromaDB: {e}")
             return []
+
+    async def diff_reports(
+        self,
+        symbol: str,
+        report_id_1: str | None = None,
+        report_id_2: str | None = None,
+    ) -> Optional[Any]: # Returns ReportDiff if found
+        """Compare two reports to identify what changed."""
+        from modules.investment.ai.schemas import FieldChange, ReportDiff
+        from modules.investment.ai.llm_client import LLMClient
+        
+        async with AsyncSessionLocal() as session:
+            # 1. Fetch reports
+            if not report_id_2:
+                # Latest vs Previous
+                stmt = select(AnalysisReport).where(AnalysisReport.symbol == symbol).order_by(desc(AnalysisReport.created_at)).limit(2)
+                res = await session.execute(stmt)
+                reports = res.scalars().all()
+                if len(reports) < 2:
+                    return None
+                new_report, old_report = reports[0], reports[1]
+            else:
+                # Specific ID for newer report
+                uid2 = uuid.UUID(report_id_2)
+                stmt2 = select(AnalysisReport).where(AnalysisReport.id == uid2)
+                res2 = await session.execute(stmt2)
+                new_report = res2.scalar_one_or_none()
+                if not new_report: return None
+
+                if report_id_1:
+                    uid1 = uuid.UUID(report_id_1)
+                    stmt1 = select(AnalysisReport).where(AnalysisReport.id == uid1)
+                else:
+                    # Find immediate previous to new_report
+                    stmt1 = select(AnalysisReport).where(
+                        AnalysisReport.symbol == symbol,
+                        AnalysisReport.created_at < new_report.created_at
+                    ).order_by(desc(AnalysisReport.created_at)).limit(1)
+                
+                res1 = await session.execute(stmt1)
+                old_report = res1.scalar_one_or_none()
+                if not old_report: return None
+
+            # 2. Extract differences
+            old_c = old_report.content
+            new_c = new_report.content
+            
+            conv_change = new_report.conviction_level - old_report.conviction_level
+            
+            # Risks & Catalysts
+            old_risks = set(old_c.get("risks", []))
+            new_risks = set(new_c.get("risks", []))
+            added_risks = sorted(list(new_risks - old_risks))
+            resolved_risks = sorted(list(old_risks - new_risks))
+            
+            old_cats = set(old_c.get("key_catalysts", []))
+            new_cats = set(new_c.get("key_catalysts", []))
+            added_cats = sorted(list(new_cats - old_cats))
+            resolved_cats = sorted(list(old_cats - new_cats))
+            
+            # Key Changes
+            changes = []
+            
+            # Sentiment
+            old_sent = old_c.get("sentiment_trend", "neutral")
+            new_sent = new_c.get("sentiment_trend", "neutral")
+            if old_sent != new_sent:
+                direction = "improved" if "bullish" in new_sent.lower() else "worsened" if "bearish" in new_sent.lower() else "neutral"
+                changes.append(FieldChange(field="Sentiment", old_value=old_sent, new_value=new_sent, direction=direction))
+            
+            # Technical indicators if varied
+            # We don't have direct access here but can compare conviction reasoning
+            
+            # 3. LLM Narrative summary
+            llm = LLMClient()
+            prompt = (
+                f"You are comparing two investment analyses for {symbol}.\n"
+                f"OLD ({old_report.created_at.date()}): {old_report.llm_summary}\n"
+                f"NEW ({new_report.created_at.date()}): {new_report.llm_summary}\n"
+                "\nWrite 2-3 sentences describing the most important changes. "
+                "Focus on: conviction shifts, new risks, resolved catalysts. "
+                "Be specific. If little changed, say so directly."
+            )
+            narrative = await llm.generate_flash(prompt)
+            
+            return ReportDiff(
+                symbol=symbol,
+                old_report_date=old_report.created_at,
+                new_report_date=new_report.created_at,
+                days_between=(new_report.created_at - old_report.created_at).days,
+                conviction_change=conv_change,
+                key_changes=changes[:5],
+                new_risks=added_risks,
+                resolved_risks=resolved_risks,
+                new_catalysts=added_cats,
+                resolved_catalysts=resolved_cats,
+                recommendation_changed=old_c.get("recommendation") != new_c.get("recommendation"),
+                narrative=narrative
+            )

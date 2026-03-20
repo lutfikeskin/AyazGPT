@@ -14,27 +14,22 @@ class HistoricalPatternMiner:
     Scans historical data for technical setups and macro correlations.
     """
 
+    # Mapping for UI display and peer analysis
     PEER_GROUPS = {
-        # BIST Sektörleri
-        "turkish_banks": ["AKBNK.IS","GARAN.IS","ISCTR.IS","YKBNK.IS","VAKBN.IS","HALKB.IS","SKBNK.IS","TSKB.IS"],
-        "turkish_industrials": ["EREGL.IS","KRDMD.IS","IZMDC.IS","CEMTS.IS","CIMSA.IS","BUCIM.IS"],
-        "turkish_energy": ["AKSEN.IS","ENKAI.IS","TUPRS.IS","ZOREN.IS","ODAS.IS","ENJSA.IS"],
-        "turkish_retail": ["BIMAS.IS","MGROS.IS","SOKM.IS","MAVI.IS"],
-        "turkish_telecom": ["TCELL.IS","TTKOM.IS"],
-        "turkish_aviation": ["THYAO.IS","PGSUS.IS","TAVHL.IS","CLEBI.IS"],
-        "turkish_conglomerates": ["KCHOL.IS","SAHOL.IS","DOHOL.IS"],
-        "turkish_reits": ["EKGYO.IS","ISGYO.IS","SNGYO.IS"],
-        "turkish_auto": ["FROTO.IS","TOASO.IS","OTKAR.IS","DOAS.IS"],
-        # Global
-        "global_tech": ["AAPL","MSFT","GOOGL","NVDA","META","AMZN","TSLA"],
-        "global_financials": ["JPM","GS","BAC","BRK-B"],
-        "global_energy": ["XOM","CVX"],
-        # Emtia (peer yok)
-        "commodities": ["GC=F","SI=F","CL=F","NG=F","HG=F","PL=F"],
-        # FX (peer yok)
-        "fx": ["USDTRY=X","EURUSD=X","GBPUSD=X","XAUUSD=X"],
-        # Kripto (peer yok)
-        "crypto": ["BTC-USD","ETH-USD"],
+        "Bankalar": ["AKBNK.IS","GARAN.IS","ISCTR.IS","YKBNK.IS","VAKBN.IS","HALKB.IS","SKBNK.IS","TSKB.IS"],
+        "Sanayi": ["EREGL.IS","KRDMD.IS","SISE.IS","PETKM.IS","CIMSA.IS","BUCIM.IS","CEMTS.IS","IZMDC.IS"],
+        "Enerji": ["TUPRS.IS","AKSEN.IS","ENKAI.IS","ENJSA.IS","ZOREN.IS","ODAS.IS","GWIND.IS"],
+        "Perakende": ["BIMAS.IS","MGROS.IS","SOKM.IS","MAVI.IS"],
+        "Havacılık": ["THYAO.IS","PGSUS.IS","TAVHL.IS","CLEBI.IS"],
+        "Otomotiv": ["FROTO.IS","TOASO.IS","OTKAR.IS","DOAS.IS","ASUZU.IS"],
+        "Holdingler": ["KCHOL.IS","SAHOL.IS","DOHOL.IS","ALARK.IS","GSDHO.IS"],
+        "Savunma & Teknoloji": ["ASELS.IS","SDTTR.IS","MIATK.IS","REEDR.IS","KORDS.IS"],
+        "Gıda & Kimya": ["SASA.IS","HEKTS.IS","GUBRF.IS","AEFES.IS","CCOLA.IS","TATGD.IS"],
+        "Gayrimenkul": ["EKGYO.IS","ISGYO.IS","SNGYO.IS","TRGYO.IS"],
+        "Telekom": ["TCELL.IS","TTKOM.IS"],
+        "Global Teknoloji": ["AAPL","MSFT","GOOGL","NVDA","META","AMZN","TSLA","AVGO","ORCL"],
+        "Global Finans": ["JPM","GS","BAC","MS","BRK-B"],
+        "Emtia & FX": ["GC=F","SI=F","CL=F","NG=F","USDTRY=X","EURUSD=X"]
     }
 
     async def _get_historical_data(self, symbol: str, days: int = 3650) -> pd.DataFrame:

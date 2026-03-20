@@ -177,3 +177,25 @@ class HistoricalQAResponse(BaseModel):
     sources_used: List[ReportSummary]
     has_view_changed: bool
     past_prediction_outcome: Optional[str] = None
+
+
+class FieldChange(BaseModel):
+    field: str
+    old_value: Any
+    new_value: Any
+    direction: Literal["improved", "worsened", "neutral", "changed"]
+
+
+class ReportDiff(BaseModel):
+    symbol: str
+    old_report_date: datetime
+    new_report_date: datetime
+    days_between: int
+    conviction_change: int           # e.g. +2 means conviction went from 5 to 7
+    key_changes: List[FieldChange]   # top 5 most significant changes
+    new_risks: List[str]             # risks that appeared in new but not old
+    resolved_risks: List[str]        # risks in old but gone in new
+    new_catalysts: List[str]
+    resolved_catalysts: List[str]
+    recommendation_changed: bool
+    narrative: str                   # Gemini Flash 2-3 sentence summary

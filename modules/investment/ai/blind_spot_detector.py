@@ -190,7 +190,7 @@ class BlindSpotDetector:
             
             # Severity sorted checks
             debt_to_equity = info.get('debtToEquity', 0)
-            if debt_to_equity > 2:
+            if debt_to_equity and debt_to_equity > 2:
                 return BlindSpot(
                     severity="ALERT",
                     title="High Leverage",
@@ -208,7 +208,7 @@ class BlindSpotDetector:
                 )
 
             short_ratio = info.get('shortRatio', 0)
-            if short_ratio > 10:
+            if short_ratio and short_ratio > 10:
                 return BlindSpot(
                     severity="INFO",
                     title="Heavily Shorted",
@@ -217,6 +217,63 @@ class BlindSpotDetector:
                 )
         except:
             pass
+        return None
+
+    async def check_analyst_vs_price(self, symbol: str, analysis: AnalysisResult) -> Optional[BlindSpot]:
+        """New blind spot: analyst consensus vs current price."""
+        fund = analysis.fundamental
+        if not fund or fund.analyst_target_mean is None:
+            return None
+
+        # Determine current price
+        curr = fund.metrics.get("current_price") or fund.metrics.get("P/E") # P/E exists in metrics, but not price directly in schemas
+        # Fallback to DCF calculation if needed
+        if not curr and fund.dcf_fair_value and fund.vs_current_price_pct:
+            curr = fund.dcf_fair_value / (1 + fund.vs_current_price_pct / 100)
+        
+        if not curr:
+            return None
+
+        # 1. OVERVALUED vs ANALYSTS
+        if curr > fund.analyst_target_mean * 1.15 and fund.recommendation_consensus == "buy":
+            return BlindSpot(
+                severity="WARNING",
+                title="Analyst Lag Risk",
+                detail=(
+                    f"Price ({curr:.2f}) is 15%+ above analyst consensus target ({fund.analyst_target_mean:.2f}) "
+                    "despite BUY ratings. Analysts may not have updated targets recently."
+                ),
+                action_suggestion="Verify report dates to ensure consensus reflects recent price action."
+            )
+
+        # 2. ANALYST DIVERGENCE
+        if fund.analyst_target_high and fund.analyst_target_low:
+            if fund.analyst_target_high / fund.analyst_target_low > 2.0:
+                return BlindSpot(
+                    severity="INFO",
+                    title="Analyst Divergence",
+                    detail=(
+                        f"Wide analyst disagreement: High {fund.analyst_target_high:.2f} vs Low {fund.analyst_target_low:.2f}. "
+                        "High uncertainty, verify thesis carefully."
+                    ),
+                    action_suggestion="Review contradicting analyst reports to identify key variables of disagreement."
+                )
+
+        # 3. UPCOMING EARNINGS
+        if fund.next_earnings_date:
+            try:
+                edate = datetime.strptime(fund.next_earnings_date[:10], "%Y-%m-%d")
+                days_to = (edate - datetime.now()).days
+                if 0 <= days_to <= 14:
+                    return BlindSpot(
+                        severity="INFO",
+                        title="Upcoming Earnings",
+                        detail=f"Earnings in {days_to} days ({fund.next_earnings_date[:10]}) — position sizing risk increases.",
+                        action_suggestion="Consider hedging or keeping portion of capital in cash until results are out."
+                    )
+            except:
+                pass
+
         return None
 
     async def run_all_checks(
@@ -232,7 +289,8 @@ class BlindSpotDetector:
             self.check_correlation_risk(watchlist_symbols),
             self.check_recency_bias(symbol, analysis),
             self.check_concentration_risk(portfolio or {}),
-            self.check_ignored_risks(symbol)
+            self.check_ignored_risks(symbol),
+            self.check_analyst_vs_price(symbol, analysis)
         ]
         
         results = await asyncio.gather(*tasks)

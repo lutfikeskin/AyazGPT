@@ -1,6 +1,6 @@
 import json
 from fastapi import APIRouter, HTTPException, Query, Body
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 
 from core.cache import cache
@@ -10,12 +10,12 @@ from modules.investment.ai.market_regime import MarketRegimeDetector
 from modules.investment.ai.schemas import (
     SymbolReport, PatternAnalysis, WeeklyDigest, ComparisonReport,
     BlindSpot, ReportSummary, HistoricalQAResponse,
-    InvestmentRecommendation, MarketRegime, UniverseScan
+    InvestmentRecommendation, MarketRegime, UniverseScan, ReportDiff
 )
-from modules.investment.models import NewsItem
+from modules.investment.models import NewsItem, MarketPrice
 from core.database import AsyncSessionLocal as async_session
 from sqlalchemy import select, desc
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 router = APIRouter(tags=["investment"])
 insight_engine = InsightEngine()
@@ -27,9 +27,13 @@ class AskRequest(BaseModel):
     symbol: str
     lang: str = "tr"
 
+class ScanRequest(BaseModel):
+    watchlist: List[str]
+
+@router.get("/")
 @router.get("/health")
 async def health_check():
-    return {"status": "ok", "module": "investment"}
+    return {"message": "Welcome to the Investment Module", "module": "investment", "status": "ok"}
 
 @router.get("/symbols", response_model=List[str])
 async def get_symbols():
@@ -37,6 +41,11 @@ async def get_symbols():
     if data:
         return json.loads(data)
     return ["AAPL", "THYAO.IS"]
+
+@router.get("/symbols/categorized", response_model=Dict[str, List[str]])
+async def get_categorized_symbols():
+    from modules.investment.ai.pattern_engine import HistoricalPatternMiner
+    return HistoricalPatternMiner.PEER_GROUPS
 
 @router.post("/symbols")
 async def add_symbol(payload: dict = Body(...)):
@@ -79,13 +88,10 @@ async def ask_question(req: AskRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/ask-with-history", response_model=HistoricalQAResponse)
-async def ask_with_history(symbol: str, question: str, lang: str = "tr"):
+async def ask_with_history(req: AskRequest):
     try:
-        return await insight_engine.answer_with_history(symbol, question, lang)
+        return await insight_engine.answer_with_history(req.question, req.symbol, [req.symbol], req.lang)
     except Exception as e:
-        # Assuming 'logger' is defined elsewhere or needs to be imported
-        # from core.logger import logger
-        # logger.error(f"Error answering with history for {symbol}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/recommend/{symbol}", response_model=InvestmentRecommendation)
@@ -109,13 +115,10 @@ async def get_market_regime():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/scan", response_model=UniverseScan)
-async def run_universe_scan(watchlist: List[str]):
+async def run_universe_scan(req: ScanRequest):
     try:
-        return await recommend_engine.scan_universe(watchlist)
+        return await recommend_engine.scan_universe(req.watchlist)
     except Exception as e:
-        # Assuming 'logger' is defined elsewhere or needs to be imported
-        # from core.logger import logger
-        # logger.error(f"Error running universe scan: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/scan/latest", response_model=UniverseScan)
@@ -141,13 +144,20 @@ async def get_reports(symbol: str, limit: int = 10, report_type: str | None = No
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/reports/{symbol}/{report_id}")
-async def get_report_content(symbol: str, report_id: str):
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/reports/{symbol}/diff", response_model=ReportDiff)
+async def get_report_diff(
+    symbol: str,
+    report_id_1: Optional[str] = None,
+    report_id_2: Optional[str] = None
+):
     try:
-        content = await insight_engine.report_store.get_report_by_id(report_id)
-        if not content:
-            raise HTTPException(status_code=404, detail="Report not found")
-        return content
+        diff = await insight_engine.report_store.diff_reports(symbol, report_id_1, report_id_2)
+        if not diff:
+            raise HTTPException(status_code=404, detail="Insufficient reports for comparison")
+        return diff
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -196,10 +206,31 @@ async def compare_symbols(symbols: str, lang: str = "tr"):
 
 @router.get("/macro/snapshot")
 async def macro_snapshot():
+    """Returns real-time snapshot for BIST100, USDTRY and macro context."""
+    async def get_latest_and_prev(symbol: str):
+        async with async_session() as session:
+            # Get last 2 days of data to calculate % change
+            query = select(MarketPrice).where(MarketPrice.symbol == symbol).order_by(desc(MarketPrice.timestamp)).limit(2)
+            res = await session.execute(query)
+            prices = res.scalars().all()
+            if len(prices) < 1:
+                return 0.0, 0.0
+            
+            latest = prices[0].close
+            if len(prices) > 1:
+                prev = prices[1].close
+                change = ((latest - prev) / prev) * 100
+            else:
+                change = 0.0
+            return latest, change
+
+    xu100, xu100_chg = await get_latest_and_prev("XU100.IS")
+    usdtry, usdtry_chg = await get_latest_and_prev("USDTRY=X")
+    
     return {
-        "FEDFUNDS": 5.25,
-        "CPI": 3.1,
-        "USDTRY": 32.50
+        "BIST100": {"price": xu100, "change": xu100_chg},
+        "USDTRY": {"price": usdtry, "change": usdtry_chg},
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 @router.get("/prices/{symbol}")
