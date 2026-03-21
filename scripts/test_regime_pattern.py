@@ -14,16 +14,12 @@ async def check():
         "volume_avg_20": 10000000 
     }
     
-    # Create a mock regime for testing
-    current_regime = MarketRegime(
-        regime="risk_on",
-        narrative="Test risk on regime",
-        detected_at=datetime.now(timezone.utc),
-        confidence="medium",
-        signals_used=[]
-    )
+    from modules.investment.ai.market_regime import MarketRegimeDetector
+    detector = MarketRegimeDetector()
+    current_regime = await detector.detect_regime()
     
     print(f"\nScanning for {symbol} with regime: {current_regime.regime}")
+    print(f"Signals used by regime detector: {current_regime.signals_used}")
     result = await miner.scan_similar_setups(symbol, indicators, current_regime)
     
     print("\nResults:")

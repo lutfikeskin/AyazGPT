@@ -52,7 +52,7 @@ class MarketRegimeDetector:
         usdtry_prices = await self._get_latest_price("USDTRY=X", 5)
         gold_prices = await self._get_latest_price("GC=F", 5)
         policy_rates = await self._get_latest_macro("TCMB_POLICY_RATE", 3)
-        cpi_data = await self._get_latest_macro("FRED_CPIAUCSL", 2) # Example fallback
+        cpi_data = await self._get_latest_macro("TCMB_CPI_INDEX", 6)
 
         signals = []
         regime_label: Literal["risk_on", "risk_off", "rate_tightening", "rate_easing", "fx_pressure", "inflation_driven", "earnings_season"] = "risk_on"
@@ -90,6 +90,23 @@ class MarketRegimeDetector:
                 if regime_label == "risk_on":
                     regime_label = "rate_easing"
                 signals.append("TCMB Rate Cut")
+
+        # CPI Momentum check
+        if len(cpi_data) >= 6:
+            recent_3m_avg = sum(cpi_data[0:3]) / 3.0
+            prev_3m_avg = sum(cpi_data[3:6]) / 3.0
+            
+            if prev_3m_avg > 0:
+                cpi_momentum = (recent_3m_avg - prev_3m_avg) / prev_3m_avg
+                
+                # Rule 1
+                if cpi_momentum > 0.02 and regime_label == "risk_on":
+                    regime_label = "inflation_driven"
+                    signals.append(f"TÜFE momentum +{cpi_momentum*100:.1f}%")
+                
+                # Rule 2
+                if cpi_momentum < -0.02 and len(policy_rates) >= 2 and policy_rates[0] < policy_rates[1]:
+                    signals.append("disinflation + rate_easing")
 
         # 2. Generate Narrative with Gemini
         narrative = "Market conditions are relatively stable with standard risk levels."

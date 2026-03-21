@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import List, Optional, Dict
 from loguru import logger
 from sqlalchemy.dialects.postgresql import insert
+from tenacity import retry, stop_after_attempt, wait_exponential, RetryError
 
 import sys
 import os
@@ -32,6 +33,7 @@ class MacroCollector:
     def __init__(self, dry_run: bool = False, fred_api_key: Optional[str] = None):
         self.dry_run = dry_run
         self.fred_api_key = fred_api_key or settings.fred_api_key
+        self.evds_api_key = getattr(settings, "evds_api_key", "8MH8jvofw2")
         
     async def save_to_db(self, indicators: List[dict]):
         if not indicators:
@@ -132,35 +134,83 @@ class MacroCollector:
                     
         return records
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        reraise=False
+    )
+    async def _fetch_policy_rate_raw(self) -> list:
+        from evds import evdsAPI
+        evds = evdsAPI(self.evds_api_key)
+        start_date = "01-01-2015"
+        end_date = datetime.now().strftime("%d-%m-%Y")
+        
+        df = evds.get_data(['TP.MB.S.M.F'], startdate=start_date, enddate=end_date)
+        records = []
+        if df is not None and not df.empty:
+            df = df.dropna(subset=['TP_MB_S_M_F'])
+            if not df.empty:
+                latest = df.iloc[-1]
+                dt = datetime.strptime(latest['Tarih'], "%d-%m-%Y").replace(tzinfo=timezone.utc)
+                records.append({
+                    "indicator": "TCMB_POLICY_RATE",
+                    "timestamp": dt,
+                    "value": float(latest['TP_MB_S_M_F']),
+                    "source": "TCMB_EVDS"
+                })
+        return records
+
     async def fetch_tcmb_policy_rate(self) -> List[dict]:
         logger.info("Fetching TCMB Policy Rate from EVDS...")
-        records = []
-        evds_url = "https://evds2.tcmb.gov.tr/service/evds/series=TP.MB.S.M.F&startDate=01-01-2015&endDate=today&type=json"
-        
         try:
-            async with httpx.AsyncClient(verify=False, follow_redirects=True) as client:
-                res = await client.get(evds_url, timeout=15.0)
-                res.raise_for_status()
-                data = res.json()
-                
-                for item in data.get('items', []):
-                    val = item.get('TP_MB_S_M_F')
-                    date_str = item.get('Tarih')
-                    if val and date_str and str(val).lower() != 'null':
-                        try:
-                            dt = datetime.strptime(date_str, "%d-%m-%Y").replace(tzinfo=timezone.utc)
-                            records.append({
-                                "indicator": "TCMB_POLICY_RATE",
-                                "timestamp": dt,
-                                "value": float(val),
-                                "source": "TCMB_EVDS"
-                            })
-                        except Exception:
-                            pass
+            return await self._fetch_policy_rate_raw()
+        except RetryError:
+            logger.warning("EVDS policy rate unavailable after 3 attempts, skipping.")
+            return []
         except Exception as e:
-            logger.warning(f"Failed EVDS API for TCMB Rate: {e}. Fallback logic skipped for brevity.")
+            logger.warning(f"Failed EVDS API for TCMB Rate: {e}. ")
+            return []
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        reraise=False
+    )
+    async def _fetch_cpi_raw(self) -> list:
+        from evds import evdsAPI
+        evds = evdsAPI(self.evds_api_key)
+        start_date = "01-01-2022"
+        end_date = datetime.now().strftime("%d-%m-%Y")
+        
+        df = evds.get_data(['TP.FG.J0'], startdate=start_date, enddate=end_date)
+        records = []
+        if df is not None and not df.empty:
+            df = df.dropna(subset=['TP_FG_J0'])
+            for _, row in df.iterrows():
+                try:
+                    date_str = row['Tarih']
+                    dt = datetime.strptime(f"{date_str}-01", "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                    records.append({
+                        "indicator": "TCMB_CPI_INDEX",
+                        "timestamp": dt,
+                        "value": float(row['TP_FG_J0']),
+                        "source": "TCMB_EVDS"
+                    })
+                except Exception:
+                    pass
         return records
+
+    async def fetch_tcmb_cpi(self) -> List[dict]:
+        """Fetch CPI (TÜFE) Index from EVDS (TP.FG.J0) to enable strict inflation-adjusted returns."""
+        logger.info("Fetching TCMB CPI (TÜFE) Index from EVDS...")
+        try:
+            return await self._fetch_cpi_raw()
+        except RetryError:
+            logger.warning("EVDS CPI unavailable after 3 attempts, skipping.")
+            return []
+        except Exception as e:
+            logger.warning(f"Failed EVDS API for TCMB CPI: {e}")
+            return []
 
     async def fetch_resmi_gazete(self):
         logger.info("Fetching Resmi Gazete RSS...")
@@ -223,9 +273,13 @@ class MacroCollector:
         fred_records = await self.fetch_fred_series()
         all_records.extend(fred_records)
         
+        # 4. TCMB CPI Index
+        cpi_records = await self.fetch_tcmb_cpi()
+        all_records.extend(cpi_records)
+        
         await self.save_to_db(all_records)
         
-        # 4. Resmi Gazete News
+        # 5. Resmi Gazete News
         await self.fetch_resmi_gazete()
 
 

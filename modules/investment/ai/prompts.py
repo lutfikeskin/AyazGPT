@@ -80,6 +80,7 @@ REGIME_NARRATIVE_PROMPT = """
 Current market regime detected: {regime}
 Signals: {signals_used}
 Write exactly 2 sentences explaining why this regime is active right now.
+If the regime is 'inflation_driven', specifically mention the TÜFE/CPI context.
 Be specific, use the signal data. No fluff.
 """
 

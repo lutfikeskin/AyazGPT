@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MyMind - Yatırım Modülü Mimari Dokümanı</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-main: #ffffff;
+    --bg-surface: #f8fafc; /* Slate 50 */
+    --bg-card: #ffffff;
+    
+    --text-primary: #0f172a; /* Slate 900 */
+    --text-secondary: #475569; /* Slate 600 */
+    --text-header: #1e3a8a; /* Blue 900 */
+    
+    --border-light: #e2e8f0; /* Slate 200 */
+    --border-blue: #bfdbfe; /* Blue 200 */
+    
+    --accent-blue: #2563eb; /* Blue 600 */
+    --accent-light: #eff6ff; /* Blue 50 */
+    
+    --tag-blue-bg: #dbeafe; /* Blue 100 */
+    --tag-blue-text: #1e40af; /* Blue 800 */
+    
+    --tag-indigo-bg: #e0e7ff; /* Indigo 100 */
+    --tag-indigo-text: #3730a3; /* Indigo 800 */
+    
+    --tag-emerald-bg: #d1fae5; /* Emerald 100 */
+    --tag-emerald-text: #065f46; /* Emerald 800 */
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { 
+    font-family: 'Inter', -apple-system, sans-serif; 
+    background: var(--bg-surface); 
+    color: var(--text-primary); 
+    font-size: 15.5px; 
+    line-height: 1.7; 
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── LAYOUT ── */
+  .container {
+    max-width: 1000px;
+    margin: 0 auto;
+    background: var(--bg-main);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  .hero { 
+    padding: 80px 40px 60px; 
+    border-bottom: 1px solid var(--border-light);
+    background: linear-gradient(180deg, var(--accent-light) 0%, var(--bg-main) 100%);
+  }
+  .hero-eyebrow { 
+    font-family: 'JetBrains Mono', monospace; 
+    font-size: 13px; 
+    color: var(--accent-blue);
+    font-weight: 500;
+    margin-bottom: 16px;
+    letter-spacing: 0.5px;
+  }
+  .hero-title { 
+    font-size: 42px; 
+    font-weight: 700; 
+    letter-spacing: -0.02em;
+    color: var(--text-header); 
+    line-height: 1.2; 
+    margin-bottom: 20px; 
+  }
+  .hero-desc { 
+    font-size: 18px; 
+    color: var(--text-secondary); 
+    max-width: 800px;
+  }
+
+  /* ── INFRA PILLS ── */
+  .infra-container { 
+    display: flex; 
+    gap: 12px; 
+    flex-wrap: wrap; 
+    margin-top: 32px; 
+  }
+  .infra-pill { 
+    padding: 6px 14px; 
+    border-radius: 6px; 
+    border: 1px solid var(--border-blue); 
+    font-family: 'JetBrains Mono', monospace; 
+    font-size: 12.5px; 
+    color: var(--accent-blue); 
+    background: var(--bg-main); 
+  }
+
+  /* ── SECTIONS ── */
+  .section { 
+    padding: 60px 40px; 
+    border-bottom: 1px solid var(--border-light);
+  }
+  .section:last-child {
+    border-bottom: none;
+  }
+  .section-header { 
+    margin-bottom: 40px; 
+  }
+  .section-title { 
+    font-size: 26px; 
+    font-weight: 600;
+    color: var(--text-header); 
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+  .step-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--accent-blue);
+    background: var(--accent-light);
+    border: 1px solid var(--border-blue);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+  .section-desc { 
+    font-size: 16.5px; 
+    color: var(--text-secondary); 
+  }
+
+  /* ── GRID SYSTEM ── */
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px; }
+  
+  /* ── CARDS ── */
+  .card { 
+    background: var(--bg-card); 
+    border: 1px solid var(--border-light); 
+    border-radius: 8px; 
+    padding: 28px; 
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  }
+  .card-header-flex { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: flex-start; 
+    margin-bottom: 16px; 
+  }
+  .card-title { 
+    font-size: 17px; 
+    font-weight: 600; 
+    color: var(--text-primary);
+  }
+  
+  /* Tags */
+  .tag {
+    font-family: 'JetBrains Mono', monospace; 
+    font-size: 11.5px; 
+    padding: 4px 10px; 
+    border-radius: 6px; 
+    font-weight: 500;
+  }
+  .tag-blue { background: var(--tag-blue-bg); color: var(--tag-blue-text); }
+  .tag-indigo { background: var(--tag-indigo-bg); color: var(--tag-indigo-text); }
+  .tag-emerald { background: var(--tag-emerald-bg); color: var(--tag-emerald-text); }
+
+  .card-text { 
+    font-size: 15px; 
+    color: var(--text-secondary); 
+    margin-bottom: 20px; 
+  }
+  .card-highlight { 
+    font-size: 14.5px; 
+    color: var(--text-primary); 
+    background: var(--accent-light); 
+    padding: 14px 18px; 
+    border-left: 4px solid var(--accent-blue); 
+    border-radius: 0 6px 6px 0;
+  }
+  .code { 
+    font-family: 'JetBrains Mono', monospace; 
+    font-size: 13.5px; 
+    color: var(--accent-blue); 
+    background: var(--bg-surface); 
+    padding: 2px 6px; 
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+  }
+
+  /* ── PROCESS ITEMS ── */
+  .process-item { 
+    margin-bottom: 32px;
+    padding-bottom: 32px;
+    border-bottom: 1px dashed var(--border-light);
+  }
+  .process-item:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+  .process-content h3 { 
+    font-size: 18px; 
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 10px; 
+  }
+  .process-content p { 
+    color: var(--text-secondary); 
+    font-size: 15.5px; 
+    margin-bottom: 14px; 
+  }
+  .process-bullets { 
+    padding-left: 24px; 
+    color: var(--text-secondary); 
+  }
+  .process-bullets li { 
+    font-size: 15px; 
+    margin-bottom: 6px; 
+  }
+  .process-bullets strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  /* ── UI SHOWCASE ── */
+  .ui-mockup { 
+    border: 1px solid var(--border-light); 
+    border-radius: 8px; 
+    background: var(--bg-surface); 
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  }
+  .ui-header { 
+    background: var(--bg-main); 
+    padding: 14px 20px; 
+    border-bottom: 1px solid var(--border-light); 
+    display: flex; gap: 8px; align-items: center; 
+    border-radius: 8px 8px 0 0;
+  }
+  .ui-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot-1 { background: #ef4444; }
+  .dot-2 { background: #f59e0b; }
+  .dot-3 { background: #10b981; }
+
+  .ui-body { padding: 40px; background: var(--bg-main); border-radius: 0 0 8px 8px; }
+  .ui-feature { margin-bottom: 32px; }
+  .ui-feature:last-child { margin-bottom: 0; }
+  .ui-feature-title { font-weight: 600; font-size: 16.5px; color: var(--text-primary); margin-bottom: 6px; }
+  .ui-feature-desc { font-size: 15.5px; color: var(--text-secondary); }
+
+  @media (max-width: 768px) {
+    .grid-2 { grid-template-columns: 1fr; }
+    .hero, .section { padding-left: 24px; padding-right: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<header class="hero">
+  <div class="hero-eyebrow">Kişisel Sistem Dokümantasyonu</div>
+  <h1 class="hero-title">MyMind: Yatırım Asistanı Modülü</h1>
+  <p class="hero-desc">Kişisel yatırımlarımda ve portföy takibimde daha sağlıklı, veriye dayalı kararlar vermemi sağlamak için tasarladığım finansal değerlendirme altyapısı. Sistem, yapay zekayı hislere göre değil; deterministik matematik modelleri, yerel/global haber akışları ve merkez bankası kararları ile besleyerek sentez üretir.</p>
+  
+  <div class="infra-container">
+    <div class="infra-pill">FastAPI Backend</div>
+    <div class="infra-pill">PostgreSQL / TimescaleDB</div>
+    <div class="infra-pill">ChromaDB</div>
+    <div class="infra-pill">Redis</div>
+    <div class="infra-pill">APScheduler Otonomasyonu</div>
+  </div>
+</header>
+
+<!-- 1. PERSONALIZED TRACKING & DATA COLLECTION -->
+<section class="section">
+  <div class="section-header">
+    <h2 class="section-title"><span class="step-number">01</span> Kişisel Takip (Watchlist) ve Veri Yakalama</h2>
+    <p class="section-desc">Sistem genel bir "piyasa özeti" sunmanın çok ötesine geçer. Takip etmeyi seçtiğim şirketlere (Örn: THYAO.IS, AAPL) odaklanarak, dünyanın herhangi bir yerinde kopan fırtınaların tam olarak benim izleme listemi nasıl etkileyeceğini bulmak için çalışır.</p>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-top">
+        <div class="card-header-flex">
+          <div class="card-title">Hükümet & Makro Analizi</div>
+          <div class="card-badge tag-indigo">TCMB & FRED & Gazete</div>
+        </div>
+      </div>
+      <div class="card-text">Piyasanın en tepesindeki kurallar izlenir. Faiz oranları, döviz ve enflasyon (TCMB, FRED) güncel olarak veri tabanına işlenir. RSS botları her sabah 08:00'de Türkiye <strong>Resmî Gazete</strong>'sini okuyarak, şirketlerimi etkileyecek yasa ve teşvik mevzuatlarını yakalar.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-top">
+        <div class="card-header-flex">
+          <div class="card-title">Şirket Kararları ve Haber Akışı</div>
+          <div class="card-badge tag-blue">KAP & RSS Feeds</div>
+        </div>
+      </div>
+      <div class="card-text">Portföyümdeki şirketlerin en kritik adımları, anında <strong>KAP (Kamuyu Aydınlatma Platformu)</strong> üzerinden çekilir (Özel Durum Bildirimleri, İhaleler). Eş zamanlı olarak <em>Bloomberg, Reuters ve Investing</em> kaynaklarındaki global ve yerel sektörel haberler de taranarak <strong>ChromaDB</strong> vektör belleğine yazılır.</div>
+    </div>
+
+    <div class="card" style="grid-column: 1 / -1;">
+      <div class="card-top">
+        <div class="card-header-flex">
+          <div class="card-title">Hedefe Yönelik Veri Paketi (Context Package)</div>
+          <div class="card-badge tag-emerald">Data Assembly</div>
+        </div>
+      </div>
+      <div class="card-text">Ben belirli bir şirketi incelemek istediğimde (Örn: Türk Hava Yolları); altyapı arka planda bir <code>ContextPackage</code> oluşturur. Bu paket; hissenin 10 yıllık fiyatını, Merkez Bankasından gelen döviz riskini, son 24 saatteki KAP açıklamalarını, Reuters haberlerini ve o hisse özelindeki <code>borsapy</code> aracı kurum raporlarını <strong>tek bir bağlamda</strong> birleştirir. Yapay zekaya (LLM) sızdırılan bilgi, sadece ve tam olarak o hisseyi deşmek için gereken mikroskobik veridir.</div>
+      <div class="card-highlight"><b>Nasıl çalışıyor?:</b> Sistem genel haberleri değil; portföyündeki A senedini etkileyecek global makro veriyi (Fed) ile yerel duyuruyu (Şirket Bilançosu) çarpıştırarak analiz yeteneği sergiliyor.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. ANALYSIS ENGINES -->
+<section class="section">
+  <div class="section-header">
+    <h2 class="section-title"><span class="step-number">02</span> Kesin ve Sayısal Analiz Modülleri</h2>
+    <p class="section-desc">Elde edilen "Özel Veri Paketi", yorumlanmadan önce kesin matematik ve istatistik atölyelerine girer. Bu sayede yapay zekanın sayı sallaması veya halüsinasyon (hallucination) görmesi fiziksel olarak engellenir.</p>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-top">
+        <div class="card-title">İçsel Değerleme (Fundamental)</div>
+      </div>
+      <div class="card-text">Python, hissenin bilançolarını okuyarak <span class="code">DCF (İndirgenmiş Nakit Akışı)</span> senaryosu koşturur. Özkaynak Karlılığı (ROE) ve P/E üzerinden bir "Sayısal Kalite" skoru üretir.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-top">
+        <div class="card-title">Risk Matrix'i</div>
+      </div>
+      <div class="card-text">İlgili hissenin son 1 yıllık grafiğine bakılıp <strong>Beta katsayısı</strong> çıkartılır. Hissenin Max Drawdown'u ve Sharpe oranları bulunur; yani izlediğim şirket <em>çok riskli ama çok mu getirili</em> tespiti yapılır.</div>
+    </div>
+
+    <div class="card" style="grid-column: 1 / -1;">
+      <div class="card-top">
+        <div class="card-title">Çift Yönlü Duyarlılık Okuması (NLP Routing)</div>
+      </div>
+      <div class="card-text">İzlediğim hisse hakkında düşen metinler, dili tespit edildikten sonra (<code>langdetect</code>) ayrıştırılır:
+        <ul style="margin-top:10px; padding-left:24px; color:var(--text-secondary);">
+          <li style="margin-bottom:6px;">Türkçe (KAP, Resmi Gazete, BIST yorumları) bağlamın ince manasını anlaması için <span class="code">Gemini Flash</span> modeline iletilir.</li>
+          <li>İngilizce global borsa raporları, sadece finansal veriye kodlanmış ve saniyenin onda biri hızında çalışan Wall-Street harikası bölgesel model <span class="code">ProsusAI/finbert</span>'e verilir.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3. AI EVALUATION -->
+<section class="section">
+  <div class="section-header">
+    <h2 class="section-title"><span class="step-number">03</span> Gemini Karar Alma Disiplini</h2>
+    <p class="section-desc">Yukarıda tamamen izlediğim hisseye özel hazırlanan (Makro + Mikro + Formüller) veri, son aşamada ana muhakeme yeticisi olan LLM'e (Gemini) aktarılır. Model katı bir felsefeyle kodlanmıştır.</p>
+  </div>
+
+  <div class="process-list">
+    <div class="process-item">
+      <div class="process-content">
+        <h3>Piyasa Rejimi Çerçevesi</h3>
+        <p>Gemini analizini yaparken boşluğa konuşmaz. Formüllerle tespit edilmiş enflasyon odaklı veya faiz odaklı bir "Piyasa İklimini (Regime)" bilir. İzlediğim teknoloji hissesi temel analizde çok ucuz çıksa bile, "Fed Faiz oranları tırmanıyor, bu rejimde alım risklidir" bağlamını kurar.</p>
+      </div>
+    </div>
+
+    <div class="process-item">
+      <div class="process-content">
+        <h3>Düşman Avukatı (Devil's Advocate)</h3>
+        <p>Ajan asla bir senedi alkışlamaz (Cheerleader efekti engellenmiştir). Kurumsal analistlerin (borsapy) ortak paylaştığı uç hedefleri tespit eder, aradaki makası bulursa beni "Analist Gecikmesi (Analyst Lag)" riskine karşı kör noktalarla uyarır.</p>
+      </div>
+    </div>
+
+    <div class="process-item">
+      <div class="process-content">
+        <h3>Zorunlu JSON Sentez Raporu</h3>
+        <p>Verilen karar dağınık paragraflar halinde değil; bir kurum raporu disiplininde çıkmaya (Pydantic ile) zorlanır:</p>
+        <ul class="process-bullets">
+          <li><strong>Ana Tez (Primary Thesis):</strong> Detaylı veriler ışığındaki asıl strateji nedir?</li>
+          <li><strong>Katalizörler:</strong> Şirketin kaderini değiştirecek en yakın aktivite nedir (Bilançolar vs.)?</li>
+          <li><strong>Karşı Tez (Counter Thesis):</strong> Piyasada buna muhalefet edenlerin elindeki doneler nedir?</li>
+          <li><strong>İptal Şartları (Invalidation Triggers):</strong> Olaylar nasıl gelişirse, verdiği bu tavsiyenin veya analizin bir hükmü kalmaz?</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. UI PRESENTATION -->
+<section class="section">
+  <div class="section-header">
+    <h2 class="section-title"><span class="step-number">04</span> İzleme Arayüzü (UI)</h2>
+    <p class="section-desc">Test edip takip edeceğim tüm şahsi şirketler, karmaşık altyapıdan (FastAPI, Redis, Chroma) yalıtılarak anlaşılır ve sade bir panele (Streamlit) düşer.</p>
+  </div>
+
+  <div class="ui-mockup">
+    <div class="ui-header">
+      <div class="ui-dot dot-1"></div><div class="ui-dot dot-2"></div><div class="ui-dot dot-3"></div>
+      <span class="code" style="border:none; background:none; color:var(--text-secondary); margin-left: 6px;">localhost:8501</span>
+    </div>
+    <div class="ui-body grid-2" style="padding: 32px; gap: 40px;">
+      
+      <div>
+        <div class="ui-feature">
+          <div class="ui-feature-title">Görsel Okuma ve Diff Analizi</div>
+          <div class="ui-feature-desc">Takip listemde olan senedin 10 yıllık fiyat trendi <strong>Plotly</strong> ile interaktif çizdirilir. "Fark Motoru (What Changed?)" özelliği, o şirket hakkında AI tarafından geçen ay yazılan raporu okuyup, bugünkü yeni rapor arasındaki <b>bakış açısı kırılmalarını</b> (Revizyonları) tek satırda önüme serer.</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="ui-feature">
+          <div class="ui-feature-title">Sankey Kanıt Grafiği (Açıklanabilirlik)</div>
+          <div class="ui-feature-desc">AI hiçbir zaman "sadece hissi olarak" karar alamaz. İzlediğim senedi neden beğendiğini (veya çöpe attığını), ekranda çizdirilen ve verilerin (TCMB Kararı → Yabancı Oranı → KAP Haberi → AI Kararı) şeklinde aktığı şeffaf bir kanıt şeması üzerinden kanıtlamakla mükelleftir.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+</div> <!-- End Container -->
+
+</body>
+</html>
