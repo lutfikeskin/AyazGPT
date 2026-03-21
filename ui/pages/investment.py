@@ -203,6 +203,46 @@ def plot_candlestick(prices):
     fig.update_layout(xaxis_rangeslider_visible=False, template="plotly_dark", height=450, margin=dict(l=0,r=0,t=0,b=0))
     st.plotly_chart(fig, use_container_width=True)
 
+def plot_evidence_sankey(evidence_graph):
+    if not evidence_graph or not evidence_graph.get('nodes'): return None
+    
+    nodes = evidence_graph['nodes']
+    edges = evidence_graph['edges']
+    
+    node_indices = {n['id']: i for i, n in enumerate(nodes)}
+    
+    labels = [f"{n['label']}: {n['value']}" for n in nodes]
+    colors = []
+    for n in nodes:
+        if n['type'] == 'conclusion': colors.append('#00ffcc')
+        elif n['type'] == 'macro': colors.append('#9b59b6')
+        elif n['type'] == 'technical': colors.append('#2ecc71')
+        elif n['type'] == 'fundamental': colors.append('#f1c40f')
+        elif n['type'] == 'pattern': colors.append('#3498db')
+        elif n['type'] == 'blind_spot': colors.append('#e74c3c')
+        else: colors.append('gray')
+        
+    s_idx = [node_indices[e['from_id']] for e in edges if e['from_id'] in node_indices and e['to_id'] in node_indices]
+    t_idx = [node_indices[e['to_id']] for e in edges if e['from_id'] in node_indices and e['to_id'] in node_indices]
+    v_vals = [e['weight'] for e in edges if e['from_id'] in node_indices and e['to_id'] in node_indices]
+    
+    fig = go.Figure(data=[go.Sankey(
+        node=dict(
+            pad=15,
+            thickness=20,
+            line=dict(color="black", width=0.5),
+            label=labels,
+            color=colors
+        ),
+        link=dict(
+            source=s_idx,
+            target=t_idx,
+            value=v_vals
+        )
+    )])
+    fig.update_layout(title_text="🔍 Kanıt Zinciri (Causal Evidence Graph)", font_size=10, height=400, margin=dict(l=0,r=0,t=40,b=0), template="plotly_dark")
+    return fig
+
 # ═══════════════════════════════════════════════════
 # SIDEBAR (Watchlist)
 # ═══════════════════════════════════════════════════
@@ -452,6 +492,12 @@ elif st.session_state["page"] == "🎯 Tavsiyeler":
                     st.subheader(f"{rec['symbol']} — {rec['recommendation'].upper()}")
                     st.info(rec['primary_thesis'])
                     st.markdown(f'<div class="devils-advocate"><b>Şeytanın Avukatı:</b><br>{rec["counter_thesis"]}</div>', unsafe_allow_html=True)
+                    
+                    if 'evidence_graph' in rec and rec['evidence_graph']:
+                        ev_fig = plot_evidence_sankey(rec['evidence_graph'])
+                        if ev_fig:
+                            st.plotly_chart(ev_fig, use_container_width=True)
+                            
                     st.divider()
         
         with t2:

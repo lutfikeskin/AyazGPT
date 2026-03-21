@@ -16,6 +16,7 @@ from modules.investment.ai.pattern_engine import HistoricalPatternMiner
 from modules.investment.ai.blind_spot_detector import BlindSpotDetector
 from modules.investment.analysis.aggregator import AnalysisAggregator
 from modules.investment.ai.report_store import ReportStore
+from modules.investment.ai.evidence_graph import EvidenceGraphBuilder
 from modules.investment.ai.prompts import RECOMMENDATION_PROMPT
 from google import genai
 from google.genai import types
@@ -171,11 +172,23 @@ class RecommendationEngine:
                 )
                 
                 llm_data = json.loads(response.text or "{}")
+                rec_label = llm_data.get("recommendation", "hold")
+                
+                # Build Evidence Graph
+                evidence_builder = EvidenceGraphBuilder()
+                evidence_graph = evidence_builder.build(
+                    symbol=symbol,
+                    analysis=analysis,
+                    patterns=patterns,
+                    regime=regime,
+                    blind_spots=blind_spots,
+                    recommendation_label=rec_label
+                )
                 
                 recommendation = InvestmentRecommendation(
                     symbol=symbol,
                     current_price=analysis.fundamental.metrics.get("current_price", 0) if analysis else 0,
-                    recommendation=llm_data.get("recommendation", "hold"),
+                    recommendation=rec_label,
                     confidence=llm_data.get("confidence", 5),
                     returns=returns,
                     primary_thesis=llm_data.get("primary_thesis", "No thesis provided."),
@@ -189,7 +202,8 @@ class RecommendationEngine:
                     analysis_quality="high" if analysis else "low",
                     market_regime=regime,
                     pattern_support=llm_data.get("pattern_support", "Based on historical setups."),
-                    macro_alignment=llm_data.get("macro_alignment", "Neutral alignment.")
+                    macro_alignment=llm_data.get("macro_alignment", "Neutral alignment."),
+                    evidence_graph=evidence_graph
                 )
                 
                 # Auto-save

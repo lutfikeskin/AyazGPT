@@ -10,7 +10,7 @@ from modules.investment.ai.market_regime import MarketRegimeDetector
 from modules.investment.ai.schemas import (
     SymbolReport, PatternAnalysis, WeeklyDigest, ComparisonReport,
     BlindSpot, ReportSummary, HistoricalQAResponse,
-    InvestmentRecommendation, MarketRegime, UniverseScan, ReportDiff
+    InvestmentRecommendation, MarketRegime, UniverseScan, ReportDiff, EvidenceGraph
 )
 from modules.investment.models import NewsItem, MarketPrice
 from core.database import AsyncSessionLocal as async_session
@@ -102,6 +102,18 @@ async def get_recommendation(symbol: str):
         # Assuming 'logger' is defined elsewhere or needs to be imported
         # from core.logger import logger
         # logger.error(f"Error getting recommendation for {symbol}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/evidence/{symbol}", response_model=EvidenceGraph)
+async def get_evidence_graph(symbol: str):
+    try:
+        rec = await recommend_engine.get_single_recommendation(symbol)
+        if rec and rec.evidence_graph:
+            return rec.evidence_graph
+        raise HTTPException(status_code=404, detail="Evidence graph not found or generation failed.")
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/regime", response_model=MarketRegime)

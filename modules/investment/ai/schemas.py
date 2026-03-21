@@ -22,14 +22,6 @@ class MarketRegime(BaseModel):
     confidence: Literal["high", "medium", "low"]
     signals_used: List[str]  # e.g. ["USDTRY +3.2% 5d", "BIST100 -4.1% 5d"]
 
-class ReturnEstimates(BaseModel):
-    return_1m: float
-    return_3m: float
-    return_1y: float
-    data_source: str   # "historical_patterns" | "market_averages_fallback"
-    regime_adjusted: bool
-    confidence: Literal["high", "medium", "low"]
-
 class BlindSpot(BaseModel):
     severity: Literal["ALERT", "WARNING", "INFO", "low", "medium", "high"]
     title: str
@@ -37,6 +29,32 @@ class BlindSpot(BaseModel):
     action_suggestion: Optional[str] = None
     name: Optional[str] = None # For compatibility with initial plan
     description: Optional[str] = None # For compatibility
+
+class EvidenceNode(BaseModel):
+    id: str  # Unique string, e.g., 'macro_USDTRY'
+    type: Literal["macro", "technical", "fundamental", "sentiment", "pattern", "blind_spot", "conclusion"]
+    label: str
+    value: str
+    date: Optional[datetime] = None
+
+class EvidenceEdge(BaseModel):
+    from_id: str
+    to_id: str
+    relationship: str  # e.g., 'triggers', 'supports', 'contradicts'
+    weight: float      # 0.0 to 1.0
+
+class EvidenceGraph(BaseModel):
+    nodes: List[EvidenceNode]
+    edges: List[EvidenceEdge]
+    root_conclusion: str
+
+class ReturnEstimates(BaseModel):
+    return_1m: float
+    return_3m: float
+    return_1y: float
+    data_source: str   # "historical_patterns" | "market_averages_fallback"
+    regime_adjusted: bool
+    confidence: Literal["high", "medium", "low"]
 
 class InvestmentRecommendation(BaseModel):
     symbol: str
@@ -58,10 +76,11 @@ class InvestmentRecommendation(BaseModel):
     invalidation_triggers: List[str]   # specific and measurable
 
     # Context
-    market_regime: MarketRegime
-    pattern_support: str
-    macro_alignment: str
-    blind_spots_flagged: List[BlindSpot]
+    blind_spots_flagged: List[BlindSpot]  # Ensure the recommendation accounts for what it missed
+    market_regime: MarketRegime           # the macro context when this was generated
+    pattern_support: str                  # textual synthesis of historical setup similarities
+    macro_alignment: str                  # does this trade fight the macro regime?
+    evidence_graph: Optional[EvidenceGraph] = None
 
     # Meta
     data_as_of: datetime
