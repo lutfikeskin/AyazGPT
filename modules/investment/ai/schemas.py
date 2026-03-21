@@ -142,6 +142,8 @@ class SimilarSetupResult(BaseModel):
     best_case_pct: float
     sample_dates: List[date]
     confidence: Literal["high", "medium", "low"]
+    regime_filtered_count: Optional[int] = None
+    regime_match_rate: Optional[float] = None
 
 class SectorDivergence(BaseModel):
     symbol_1m_return: float

@@ -11,6 +11,7 @@ from modules.investment.ai.llm_client import LLMClient
 from modules.investment.ai.pattern_engine import HistoricalPatternMiner
 from modules.investment.ai.blind_spot_detector import BlindSpotDetector
 from modules.investment.ai.report_store import ReportStore
+from modules.investment.ai.market_regime import MarketRegimeDetector
 from datetime import datetime
 
 class InsightEngine:
@@ -73,8 +74,12 @@ class InsightEngine:
             "volume_avg_20": context.analysis.technical.indicators.get("Volume_SMA", 0),
         }
         
+        # Get current regime
+        regime_detector = MarketRegimeDetector()
+        current_regime = await regime_detector.get_current_regime()
+
         # Run miners concurrently
-        similar_setups_task = self.pattern_miner.scan_similar_setups(symbol, indicators)
+        similar_setups_task = self.pattern_miner.scan_similar_setups(symbol, indicators, current_regime)
         macro_triggers_task = self.pattern_miner.detect_macro_triggers(symbol, "1Y")
         sector_div_task = self.pattern_miner.find_sector_divergence(symbol)
         blind_spots_task = self.blind_spot_detector.run_all_checks(symbol, context.analysis, watchlist)

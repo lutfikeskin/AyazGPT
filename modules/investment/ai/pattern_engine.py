@@ -7,7 +7,7 @@ from sqlalchemy import text
 from loguru import logger
 
 from core.database import AsyncSessionLocal
-from modules.investment.ai.schemas import SimilarSetupResult, MacroTrigger, SectorDivergence
+from modules.investment.ai.schemas import SimilarSetupResult, MacroTrigger, SectorDivergence, MarketRegime
 
 class HistoricalPatternMiner:
     """
@@ -49,7 +49,7 @@ class HistoricalPatternMiner:
                 df.set_index('timestamp', inplace=True)
             return df
 
-    async def scan_similar_setups(self, symbol: str, current_indicators: dict) -> SimilarSetupResult:
+    async def scan_similar_setups(self, symbol: str, current_indicators: dict, regime: Optional[MarketRegime] = None) -> SimilarSetupResult:
         """
         Search last 10 years for dates where this symbol had a similar technical setup.
         """
@@ -88,6 +88,80 @@ class HistoricalPatternMiner:
         # Filter out very recent dates (within last 3 months) to allow for forward return calculation
         cutoff = df.index[-1] - timedelta(days=90)
         similar_dates = [d for d in similar_dates if d < cutoff]
+
+        regime_filtered_count = None
+        regime_match_rate = None
+
+        if regime and similar_dates:
+            # Fetch historical macro context around the similar dates
+            min_date = min(similar_dates) - timedelta(days=30) # Buffer
+            max_date = max(similar_dates)
+            
+            macro_query = text("""
+                SELECT indicator, timestamp, value 
+                FROM macro_indicators 
+                WHERE timestamp BETWEEN :start AND :end
+                AND indicator IN ('TCMB_POLICY_RATE')
+                ORDER BY timestamp ASC
+            """)
+            price_query = text("""
+                SELECT symbol, timestamp, close 
+                FROM market_prices 
+                WHERE symbol IN ('USDTRY=X', 'XU100.IS')
+                AND timestamp BETWEEN :start AND :end
+                ORDER BY timestamp ASC
+            """)
+            
+            async with AsyncSessionLocal() as session:
+                m_res = await session.execute(macro_query, {"start": min_date, "end": max_date})
+                p_res = await session.execute(price_query, {"start": min_date, "end": max_date})
+                m_df = pd.DataFrame(m_res.fetchall(), columns=['indicator', 'timestamp', 'value'])
+                p_df = pd.DataFrame(p_res.fetchall(), columns=['symbol', 'timestamp', 'close'])
+                
+            if not m_df.empty: m_df['timestamp'] = pd.to_datetime(m_df['timestamp']).dt.tz_localize(None)
+            if not p_df.empty: p_df['timestamp'] = pd.to_datetime(p_df['timestamp']).dt.tz_localize(None)
+            
+            filtered_dates = []
+            
+            for d in similar_dates:
+                hist_regime = "risk_on"
+                d_naive = pd.to_datetime(d).tz_localize(None) if d.tzinfo else pd.to_datetime(d)
+                
+                # Check FX and Risk Off
+                if not p_df.empty:
+                    usd_df = p_df[(p_df['symbol'] == 'USDTRY=X') & (p_df['timestamp'] <= d_naive)]
+                    xu_df = p_df[(p_df['symbol'] == 'XU100.IS') & (p_df['timestamp'] <= d_naive)]
+                    
+                    if len(usd_df) >= 5:
+                        usd_last = usd_df['close'].iloc[-1]
+                        usd_prev = usd_df['close'].iloc[-5]
+                        if usd_prev > 0 and ((usd_last - usd_prev) / usd_prev) * 100 > 3.0:
+                            hist_regime = "fx_pressure"
+                            
+                    if hist_regime == "risk_on" and len(xu_df) >= 5:
+                        xu_last = xu_df['close'].iloc[-1]
+                        xu_prev = xu_df['close'].iloc[-5]
+                        xu_ret = ((xu_last - xu_prev) / xu_prev) * 100
+                        if xu_prev > 0 and xu_ret < -4.0:
+                            hist_regime = "risk_off"
+
+                # Check Rates
+                if hist_regime == "risk_on" and not m_df.empty:
+                    rate_df = m_df[(m_df['indicator'] == 'TCMB_POLICY_RATE') & (m_df['timestamp'] <= d_naive)]
+                    if len(rate_df) >= 2:
+                        rate_last = rate_df['value'].iloc[-1]
+                        rate_prev = rate_df['value'].iloc[-2]
+                        if rate_last > rate_prev:
+                            hist_regime = "rate_tightening"
+                        elif rate_last < rate_prev:
+                            hist_regime = "rate_easing"
+                            
+                if hist_regime == regime.regime:
+                    filtered_dates.append(d)
+                    
+            regime_match_rate = float(len(filtered_dates) / len(similar_dates)) if similar_dates else 0.0
+            similar_dates = filtered_dates
+            regime_filtered_count = len(similar_dates)
 
         results_1m = []
         results_3m = []
@@ -139,7 +213,9 @@ class HistoricalPatternMiner:
             worst_case_pct=float(np.min(worst_cases)),
             best_case_pct=float(np.max(best_cases)),
             sample_dates=[d.date() if hasattr(d, 'date') else d for d in similar_dates[-5:]],
-            confidence=confidence
+            confidence=confidence,
+            regime_filtered_count=regime_filtered_count,
+            regime_match_rate=regime_match_rate
         )
 
     async def detect_macro_triggers(self, symbol: str, timeframe: str) -> List[MacroTrigger]:

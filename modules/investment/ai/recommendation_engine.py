@@ -141,7 +141,7 @@ class RecommendationEngine:
             
             # 1. Gather all quantitative data
             analysis = await self.aggregator.get_analysis(symbol, "1M")
-            patterns = await self.pattern_miner.scan_similar_setups(symbol, {}) # simplified
+            patterns = await self.pattern_miner.scan_similar_setups(symbol, analysis.technical.indicators if analysis else {}, regime)
             blind_spots = await self.blind_spot_detector.run_all_checks(symbol, analysis, []) if analysis else []
             
             # 2. Deterministic return estimates
