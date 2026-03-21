@@ -8,6 +8,8 @@ SYMBOL_ANALYSIS_PROMPT = """You are a senior investment analyst. Analyze {symbol
 Context Package:
 {context}
 
+AVAILABLE_SOURCE_IDS: {source_ids}
+
 Structure your response as JSON with these exact keys:
 - executive_summary: 2-3 sentences summarizing the situation
 - price_performance: Brief summary of the performance
@@ -20,6 +22,7 @@ Structure your response as JSON with these exact keys:
 - sentiment_trend: String describing the current sentiment
 - conviction_level: Integer 1-10
 - conviction_reasoning: String explaining why you chose this conviction level
+- sources_cited: List of strings. Include ONLY IDs from the AVAILABLE_SOURCE_IDS list that directly influenced your analysis.
 - data_as_of: String timestamp
 """
 

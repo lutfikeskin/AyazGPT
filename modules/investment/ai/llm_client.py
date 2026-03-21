@@ -37,10 +37,15 @@ class LLMClient:
 
     async def analyze_symbol(self, symbol: str, timeframe: str, context: ContextPackage, lang: str = "tr") -> SymbolReport:
         dt_str = datetime.now(timezone.utc).isoformat()
+        
+        # Prepare source IDs for the prompt to prevent hallucinations
+        source_ids = [s.id for s in context.available_sources]
+        
         prompt = SYMBOL_ANALYSIS_PROMPT.format(
             symbol=symbol,
             timeframe=timeframe,
-            context=context.model_dump_json()
+            context=context.model_dump_json(),
+            source_ids=json.dumps(source_ids)
         )
         
         try:
@@ -60,7 +65,21 @@ class LLMClient:
             data = json.loads(response.text or "{}")
             if 'data_as_of' not in data:
                 data['data_as_of'] = dt_str
-            return SymbolReport.model_validate(data)
+            
+            report = SymbolReport.model_validate(data)
+            
+            # Source resolution logic
+            resolved_sources = []
+            source_map = {s.id: s for s in context.available_sources}
+            
+            for sid in report.sources_cited:
+                if sid in source_map:
+                    resolved_sources.append(source_map[sid])
+                else:
+                    logger.warning(f"LLM fabricated or returned unknown source ID: {sid}. Discarding.")
+            
+            report.sources = resolved_sources
+            return report
         except Exception as e:
             logger.error(f"Failed to parse LLM Output into SymbolReport: {e}")
             raise ValueError(f"LLM response did not match required JSON schema: {e}")

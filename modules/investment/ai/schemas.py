@@ -4,6 +4,14 @@ from typing import List, Optional, Dict, Any, Literal
 from modules.investment.analysis.schemas import AnalysisResult
 
 
+
+class SourceRef(BaseModel):
+    id: str
+    type: Literal["news", "macro", "price", "report"]
+    label: str
+    date: datetime
+
+
 class MarketRegime(BaseModel):
     regime: Literal[
         "risk_on", "risk_off", "rate_tightening", "rate_easing",
@@ -99,6 +107,7 @@ class ContextPackage(BaseModel):
     relevant_news: List[Dict[str, Any]]
     macro_indicators: Dict[str, float]
     peers_comparison: List[Dict[str, Any]]
+    available_sources: List[SourceRef] = []
 
 class SymbolReport(BaseModel):
     executive_summary: str
@@ -112,6 +121,8 @@ class SymbolReport(BaseModel):
     sentiment_trend: str
     conviction_level: int = Field(ge=1, le=10)
     conviction_reasoning: str
+    sources_cited: List[str] = []
+    sources: List[SourceRef] = []
     data_as_of: str
 
 
